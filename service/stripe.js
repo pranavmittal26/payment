@@ -1,11 +1,10 @@
 let Promise                        = require('bluebird');
 let _                              = require('underscore');
-const stripe_mod                   = require('stripe');
+const stripeKey                   = require('stripe');
 
-let con                      = require('../connection');
+let con                            = require('../connection');
 
 exports.getAccountDetails          = getAccountDetails;
-exports.getStripeKeys              = getStripeKeys;
 exports.checkVerificationStatus    = checkVerificationStatus;
 exports.setStripeAccDetails        = setStripeAccDetails;
 exports.updateStripeAccDetails     = updateStripeAccDetails;
@@ -17,23 +16,10 @@ exports.insertJobDetails           = insertJobDetails;
 exports.getJobDetails              = getJobDetails;
 exports.stripeTransfer             = stripeTransfer;
 
-function getStripeKeys(user_id,connectionInstance){
-    return new Promise((resolve,reject)=>{
-        let sql  = "SELECT * FROM tb_stripe_keys WHERE user_id =? "
-        let params=[user_id];
-
-        con.executeTransaction(sql,params,connectionInstance)
-        .then((result)=>{
-            return resolve(result);
-        }) .catch((ex)=>{
-            return reject(ex);
-        })
-    })
-}
 
 function getAccountDetails(user_id,conInstance){
     return new Promise((resolve,reject)=>{
-        let sql = "SELECT * FROM tb_stripe_account_details WHERE user_id=? "
+        let sql = "SELECT * FROM stripe_account_details WHERE user_id=? "
         let params=[user_id];
 
         con.executeTransaction(sql,params, conInstance).
@@ -50,17 +36,13 @@ function getAccountDetails(user_id,conInstance){
 }
 
 function checkVerificationStatus(account_status){    
-    
-    /*
-      * possible status verified, unverified, pending
-     */
     return new Promise((resolve, reject)=>{
         if(account_status == "pending") {
-            resolve("PENDING");
+            resolve("pending");
           } else if(account_status == "verified") {
-            resolve( "VERIFIED");
+            resolve( "verified");
           } else if(account_status == "unverified") {
-            resolve("UNVERIFIED");
+            resolve("unverified");
           } else {            
             resolve(0);
           }
@@ -69,7 +51,7 @@ function checkVerificationStatus(account_status){
 
 function setStripeAccDetails(opts,conInstance){
     return new Promise((resolve,reject)=>{
-        let sql =" INSERT INTO tb_stripe_account_details(user_id, stripe_account_number, account_status, currency, stripe_return_obj) VALUES(?,?,?,?,?)";
+        let sql =" INSERT INTO stripe_account_details(user_id, stripe_account_number, account_status, currency, stripe_return_obj) VALUES(?,?,?,?,?)";
 
         con.executeTransaction(sql,opts.values,conInstance).then((result)=>{
             return resolve(result);
@@ -86,7 +68,7 @@ function setStripeAccDetails(opts,conInstance){
 
 function updateStripeAccDetails(opts, where, connectionInstance){
     return new Promise((resolve,reject)=>{            
-        let sql ="UPDATE tb_stripe_account_details SET account_status=?  WHERE user_id=? "
+        let sql ="UPDATE stripe_account_details SET account_status=?  WHERE user_id=? "
         let params=[opts.account_status,where.user_id];
 
         if (where.hasOwnProperty('stripe_account_number')) {
@@ -94,7 +76,7 @@ function updateStripeAccDetails(opts, where, connectionInstance){
             params.push(where.stripe_account_number);
         }        
         con.executeTransaction(sql, params, connectionInstance).then((result)=>{  
-            console.log("seeer",)                            
+            console.log("done",)                            
             return resolve();
         }) .catch((ex)=>{
              return reject(ex);
@@ -104,7 +86,7 @@ function updateStripeAccDetails(opts, where, connectionInstance){
 
 function dataSendToStripe(opts,connectionInstance){
     return new Promise((resolve, reject) => {
-        var query = `INSERT INTO tb_storefront_details_send_to_stripe (user_id,req_body) 
+        var query = `INSERT INTO storefront_details_stripe (user_id,req_body) 
                      VALUES (?,?) `;
         con.executeTransaction(query, opts.values,connectionInstance).then((result) => {
           resolve(result);
@@ -118,7 +100,7 @@ function getStroreFrontDetails(opts,connectionInstance){
     return new Promise((resolve, reject) => {
         var values = [opts.user_id];
         var columns = opts.columns || `*`;
-        var query = `SELECT ${columns} FROM tb_storefront_details_send_to_stripe WHERE user_id = ? 
+        var query = `SELECT ${columns} FROM storefront_details_stripe WHERE user_id = ? 
                    ORDER BY id DESC LIMIT 1 `;    
     
         con.executeTransaction(query, values,connectionInstance).then((result) => {
@@ -131,7 +113,7 @@ function getStroreFrontDetails(opts,connectionInstance){
 
 function getToken(opts,stripeKeys){
     return new Promise((resolve, reject)=>{
-        let stripe = stripe_mod(stripeKeys);
+        let stripe = stripeKey(stripeKeys);
 
         stripe.tokens.create({
             card: {
@@ -151,13 +133,12 @@ function getToken(opts,stripeKeys){
 
 function createCharge(opts,stripeKeys){
     return new Promise((resolve,reject)=>{
-        let stripe = stripe_mod(stripeKeys);
+        let stripe = stripeKey(stripeKeys);
 
         stripe.charges.create({
             amount : opts.amount *100,
-            currency : "usd",
+            currency : "RS",
             source : opts.token
-            // descripton : `charge for ${opts.email}`
         },function(err,charge){
             if(err){
                 return reject(err.message);
@@ -169,7 +150,7 @@ function createCharge(opts,stripeKeys){
 
 function insertJobDetails(opts,connectionInstance){
     return new Promise((resolve,reject)=>{
-        let sql = "INSERT INTO tb_job_payment_details(job_id,user_id,amount,charge_id) VALUES(?,?,?,?)";
+        let sql = "INSERT INTO payment_details(job_id,user_id,amount,charge_id) VALUES(?,?,?,?)";
 
         con.executeTransaction(sql,opts.values,connectionInstance).then((result)=>{
             return resolve();
@@ -186,7 +167,7 @@ function insertJobDetails(opts,connectionInstance){
 
 function getJobDetails(opts){
     return new Promise((resolve,reject)=>{
-        let sql ="SELECT * FROM tb_job_payment_details WHERE 1=1 "
+        let sql ="SELECT * FROM payment_details WHERE 1=1 "
         let params =[];
 
         if(opts.user_id){
@@ -208,24 +189,17 @@ function getJobDetails(opts){
 function stripeTransfer(opts,connectionInstance){ 
     return new Promise((resolve,reject)=>{
         Promise.coroutine(function*(){
-            let stripeKeys = yield getStripeKeys(opts.marketplace_user_id,connectionInstance);
-            if(_.isEmpty(stripeKeys)){
-                throw ({
-                    status  : 400,
-                    message : "NO_KEY_FOUND",
-                    data    : []
-                });
-            }
+            
             let account_id = yield getAccountDetails(opts.user_id,connectionInstance);
 
             if(_.isEmpty(account_id)){
                 throw({
                     status :400,
-                    message : "REGISTER FIRST",
+                    message : "please register",
                     data   : []
                 })
             }
-            let stripe = stripe_mod(stripeKeys[0].private_key);
+            let stripe = stripeKey(private_key);
             let transObject ={
                 amount   : (opts.amount*100).toFixed(0),
                 currency : 'usd',
@@ -235,7 +209,7 @@ function stripeTransfer(opts,connectionInstance){
             let transferResult = yield stripe.transfers.create(transObject);
             return ({
                 status  : 200,
-                message : "successfully tranfer",
+                message : "successfull",
                 data    : transferResult
             });
         })().then((result)=>{

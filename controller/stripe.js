@@ -9,7 +9,6 @@ exports.charge = charge;
 
 function charge(req, res) {
   let user_id = req.body.user_id;
-  let marketplace_user_id = req.body.marketplace_user_id;
   let card_number = req.body.card_number;
   let exp_month = req.body.exp_month;
   let exp_year = req.body.exp_year;
@@ -30,7 +29,7 @@ function charge(req, res) {
     if (_.isEmpty(userDetail)) {
       return {
         status: 400,
-        message: "INVALID USER EMAIL OR ID",
+        message: "Invalid user_id",
         data: userDetail
       };
     }
@@ -38,18 +37,6 @@ function charge(req, res) {
     connectionInstance = yield connection.getConnectionForTransaction();
     yield connection.start(connectionInstance);
 
-    let stripeKeys = yield stripeServices.getStripeKeys(
-      marketplace_user_id,
-      connectionInstance
-    );
-
-    if (_.isEmpty(stripeKeys)) {
-      return {
-        status: 200,
-        message: "INAVLID USER ID ",
-        data: []
-      };
-    }
     opts = {
       card_number: card_number,
       exp_month: exp_month,
@@ -58,7 +45,7 @@ function charge(req, res) {
     };
     let tokenId = yield stripeServices.getToken(
       opts,
-      stripeKeys[0].private_key
+      private_key
     );
     amount = amount.toFixed(2);
     opts = {
@@ -69,9 +56,8 @@ function charge(req, res) {
 
     let chargeDetails = yield stripeServices.createCharge(
       opts,
-      stripeKeys[0].private_key
+     private_key
     );
-
     opts = {
       values: [job_id, user_id, amount, chargeDetails.id]
     };
@@ -84,9 +70,9 @@ function charge(req, res) {
 
     return {
       status: 200,
-      message: "SUCCESSFULL PAYMENT",
-      data: `YOUR ORDER_ID IS ${chargeDetails.id}`
-    };
+      message: "Payment Successfull",
+      data: "Your Order_id is : " + chargeDetails.id
+       };
   })().then(
     result => {
       return res

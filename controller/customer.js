@@ -22,8 +22,7 @@ function signup(req, res){
         if(!_.isEmpty(userDetails)){
             return ({
                 status   : 400,
-                message  : "USER ALREADY EXIST",
-                data     : {}
+                message  : "User Exist"
             });
         }
         opts={
@@ -32,7 +31,7 @@ function signup(req, res){
         yield userServices.insertUser(opts);
         return ({
             status  : 200,
-            message : "registered succesfully",
+            message : "Succesfully registered",
             data    :{}
         })
     })().then((result)=>{

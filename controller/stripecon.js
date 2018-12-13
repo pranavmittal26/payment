@@ -1,6 +1,6 @@
 let Promise = require("bluebird");
 let _ = require("underscore");
-const stripe_p = require("stripe");
+const stripeKey = require("stripe");
 
 let stripeService = require("../service/stripe");
 const connection = require("../connection");
@@ -39,19 +39,7 @@ function getDetails(req, res) {
     }
     stripe_account_number = acc_data[0]["stripe_account_number"];
 
-    userStripeKeysResult = yield stripeService.getStripeKeys(
-      marketplace_user_id,
-      getConnection
-    );
-
-    if (_.isEmpty(userStripeKeysResult)) {
-      return {
-        status: 400,
-        message: "User is Invalid",
-        data: {}
-      };
-    }
-    stripe = stripe_p(userStripeKeysResult[0]["private_key"]);
+    stripe = stripeKey("PRIVATE KEY");
 
     acc_details = yield stripe.accounts.retrieve(stripe_account_number);
 
@@ -64,7 +52,7 @@ function getDetails(req, res) {
     } else {
       return {
         status: 400,
-        message: "Some thing went wrong!!"
+        message: "Something went wrong!!"
       };
     }
 
@@ -201,13 +189,7 @@ function register(req, res) {
       } catch (e) {}
     }
 
-    stripeKeyResult = yield stripeService.getStripeKeys(
-      maerketplace_user_id,
-      getConnection
-    );
-
-
-    stripe = stripe_p(stripeKeyResult[0]["private_key"]);
+    stripe = stripeKey("PRIVATE KEY");
 
     stripe_account = {
       object: "bankAccount",

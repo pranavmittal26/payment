@@ -5,7 +5,7 @@ exports.insertUser        = insertUser;
 
 function getUserDetails(opts){
     return new Promise((resolve,reject)=>{
-        let sql ="SELECT * FROM tb_users WHERE 1=1 "
+        let sql ="SELECT * FROM customer WHERE 1=1 "
     let params=[];
     if(opts.user_id){
         sql+=" AND user_id=? "
@@ -26,7 +26,7 @@ function getUserDetails(opts){
 
 function insertUser(opts){
     return new Promise((resolve,reject)=>{
-        let sql= "INSERT INTO tb_users(first_name,last_name,email,password,phone) VALUES(?,?,?,?,?)"
+        let sql= "INSERT INTO customer (first_name,last_name,email,password,phone) VALUES(?,?,?,?,?)"
         con.executeQuery(sql,opts.values).then(()=>{            
             return resolve();
         }).catch((error)=>{
